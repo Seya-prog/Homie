@@ -1,0 +1,248 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String?
+  firstName String?
+  lastName  String?
+  phone     String?
+  avatar    String?
+  role      UserRole @default(TENANT)
+  
+  // Fayda Integration fields
+  faydaId       String?  @unique
+  faydaVerified Boolean  @default(false)
+  kycStatus     KYCStatus @default(PENDING)
+  kycData       Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  ownedProperties Property[] @relation("PropertyOwner")
+  rentals        Rental[]
+  payments       Payment[]
+  maintenanceRequests MaintenanceRequest[]
+  reviews        Review[]
+  
+  @@map("users")
+}
+
+model Property {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  address     String
+  city        String
+  state       String
+  zipCode     String
+  country     String   @default("Ethiopia")
+  
+  // Location data
+  latitude    Float?
+  longitude   Float?
+  
+  // Property details
+  propertyType PropertyType
+  bedrooms    Int
+  bathrooms   Float
+  area        Float
+  furnished   Boolean      @default(false)
+  
+  // Pricing
+  rentAmount  Float
+  deposit     Float
+  currency    String       @default("ETB")
+  
+  // Property status
+  status      PropertyStatus @default(AVAILABLE)
+  available   Boolean        @default(true)
+  
+  // Media
+  images      String[]
+  virtualTour String?
+  
+  // Features and amenities
+  amenities   String[]
+  features    String[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  ownerId     String
+  owner       User     @relation("PropertyOwner", fields: [ownerId], references: [id])
+  rentals     Rental[]
+  reviews     Review[]
+  maintenanceRequests MaintenanceRequest[]
+  
+  @@map("properties")
+}
+
+model Rental {
+  id        String   @id @default(uuid())
+  startDate DateTime
+  endDate   DateTime
+  rentAmount Float
+  deposit   Float
+  status    RentalStatus @default(ACTIVE)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  tenantId   String
+  tenant     User     @relation(fields: [tenantId], references: [id])
+  payments   Payment[]
+  
+  @@map("rentals")
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  amount      Float
+  currency    String        @default("ETB")
+  paymentType PaymentType
+  status      PaymentStatus @default(PENDING)
+  
+  // Payment gateway data
+  gateway         String? // chapa, telebirr, etc.
+  transactionId   String?
+  gatewayResponse Json?
+  
+  dueDate     DateTime
+  paidAt      DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  rentalId String
+  rental   Rental @relation(fields: [rentalId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  
+  @@map("payments")
+}
+
+model MaintenanceRequest {
+  id          String            @id @default(uuid())
+  title       String
+  description String
+  priority    Priority          @default(MEDIUM)
+  status      MaintenanceStatus @default(PENDING)
+  
+  // Cost estimation
+  estimatedCost Float?
+  actualCost    Float?
+  
+  images      String[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+  
+  // Relations
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  requesterId String
+  requester   User     @relation(fields: [requesterId], references: [id])
+  
+  @@map("maintenance_requests")
+}
+
+model Review {
+  id      String @id @default(uuid())
+  rating  Int    // 1-5 stars
+  comment String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  reviewerId String
+  reviewer   User     @relation(fields: [reviewerId], references: [id])
+  
+  @@unique([propertyId, reviewerId])
+  @@map("reviews")
+}
+
+// Enums
+enum UserRole {
+  TENANT
+  LANDLORD
+  ADMIN
+}
+
+enum KYCStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  CONDO
+  STUDIO
+  ROOM
+  COMMERCIAL
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RENTED
+  MAINTENANCE
+  INACTIVE
+}
+
+enum RentalStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING
+}
+
+enum PaymentType {
+  RENT
+  DEPOSIT
+  MAINTENANCE
+  PENALTY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
