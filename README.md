@@ -117,58 +117,368 @@ For development and testing:
 4. Platform receives verified user information
 5. User profile updated with verification status
 
-## Installation & Setup
+## Installation and Deployment
 
 ### Prerequisites
-- Node.js 18+
-- Docker and Docker Compose
-- PostgreSQL 15+
-- Redis 7+
 
-### Quick Start with Docker
+Before getting started, ensure you have the following installed on your system:
 
-1. **Clone the repository**
+- **Node.js** 20+ (LTS recommended)
+- **Docker** 24+ and **Docker Compose** 2.0+
+- **Git** for version control
+- **PostgreSQL** 16+ (if running locally without Docker)
+- **Redis** 7+ (if running locally without Docker)
+
+### Quick Start (Recommended)
+
+#### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/your-username/homie.git
 cd homie
 ```
 
-2. **Start all services**
+#### 2. Environment Configuration
 ```bash
-docker-compose up -d
-```
-
-3. **Run database migrations**
-```bash
-cd backend
-npx prisma migrate dev
-npx prisma generate
-```
-
-4. **Access the application**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-- Database: localhost:5432
-
-### Manual Setup
-
-#### Backend Setup
-```bash
-cd backend
-npm install
+# Copy the environment template
 cp .env.example .env
-# Configure environment variables
-npx prisma migrate dev
-npx prisma generate
-npm run dev
+
+# Edit the environment variables (see Environment Variables section below)
+nano .env  # or use your preferred editor
 ```
 
-#### Frontend Setup
+#### 3. Deploy with Docker (Production)
+```bash
+# Make deployment script executable
+chmod +x scripts/deploy.sh
+
+# Deploy to production
+./scripts/deploy.sh production
+
+# Or deploy to development
+./scripts/deploy.sh development
+```
+
+#### 4. Access the Application
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:5000/api
+- **Database**: localhost:5432 (PostgreSQL)
+- **Cache**: localhost:6379 (Redis)
+
+### Development Setup
+
+#### Option 1: Docker Development Environment
+```bash
+# Start development environment with hot reloading
+docker-compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f
+
+# Stop development environment
+docker-compose -f docker-compose.dev.yml down
+```
+
+#### Option 2: Local Development (Manual)
+
+##### Backend Setup
+```bash
+cd backend
+
+# Install dependencies
+npm ci
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your local configuration
+
+# Generate Prisma client
+npm run db:generate
+
+# Run database migrations
+npm run db:deploy
+
+# Start development server
+npm run dev
+
+# Run tests
+npm test
+
+# Run with debugging
+npm run dev -- --inspect=0.0.0.0:9229
+```
+
+##### Frontend Setup
 ```bash
 cd frontend
-npm install
+
+# Install dependencies
+npm ci
+
+# Setup environment
+cp .env.local.example .env.local
+# Edit .env.local with your configuration
+
+# Start development server
 npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
 ```
+
+### Production Deployment
+
+#### Option 1: Automated Deployment Script
+```bash
+# Deploy to production with all safety checks
+./scripts/deploy.sh production
+
+# Deploy with specific options
+./scripts/deploy.sh production --force --no-backup
+
+# Deploy to staging
+./scripts/deploy.sh staging
+```
+
+#### Option 2: Manual Docker Deployment
+```bash
+# Build production images
+docker-compose build --no-cache
+
+# Start production services
+docker-compose up -d
+
+# Run database migrations
+docker-compose exec backend npm run db:deploy
+
+# Check service health
+docker-compose ps
+curl http://localhost:3000/api/health
+curl http://localhost:5000/api/health
+```
+
+#### Option 3: Cloud Deployment (AWS/Azure/GCP)
+
+##### Using Docker Images
+```bash
+# Build and tag images for registry
+docker build -t your-registry/homie-frontend:latest ./frontend
+docker build -t your-registry/homie-backend:latest ./backend
+
+# Push to registry
+docker push your-registry/homie-frontend:latest
+docker push your-registry/homie-backend:latest
+
+# Deploy using your cloud provider's container service
+```
+
+### Environment Variables
+
+Create environment files for different stages:
+
+#### Production (.env.production)
+```bash
+NODE_ENV=production
+DATABASE_URL=postgresql://user:password@your-db-host:5432/homie_db
+REDIS_URL=redis://your-redis-host:6379
+JWT_SECRET=your-super-secure-jwt-secret-32-chars-minimum
+FAYDA_CLIENT_ID=your-fayda-client-id
+FAYDA_CLIENT_SECRET=your-fayda-client-secret
+CHAPA_SECRET_KEY=your-chapa-secret-key
+FRONTEND_URL=https://your-domain.com
+```
+
+#### Staging (.env.staging)
+```bash
+NODE_ENV=staging
+DATABASE_URL=postgresql://user:password@staging-db:5432/homie_staging
+# ... other staging-specific variables
+```
+
+#### Development (.env.development)
+```bash
+NODE_ENV=development
+DATABASE_URL=postgresql://homie_user:homie_password@localhost:5432/homie_db
+# ... other development variables
+```
+
+### Database Setup
+
+#### Using Docker (Recommended)
+The database is automatically set up when using Docker Compose.
+
+#### Manual PostgreSQL Setup
+```bash
+# Create database and user
+sudo -u postgres psql
+CREATE DATABASE homie_db;
+CREATE USER homie_user WITH PASSWORD 'homie_password';
+GRANT ALL PRIVILEGES ON DATABASE homie_db TO homie_user;
+
+# Run migrations
+cd backend
+npm run db:deploy
+
+# Seed database (optional)
+npm run db:seed
+```
+
+### SSL/HTTPS Setup (Production)
+
+#### Using Let's Encrypt with Nginx
+```bash
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get SSL certificate
+sudo certbot --nginx -d your-domain.com
+
+# Configure auto-renewal
+sudo crontab -e
+# Add: 0 12 * * * /usr/bin/certbot renew --quiet
+```
+
+### Monitoring and Logs
+
+#### View Application Logs
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f frontend
+docker-compose logs -f backend
+docker-compose logs -f postgres
+```
+
+#### Health Checks
+```bash
+# Backend health
+curl http://localhost:5000/api/health
+
+# Frontend health
+curl http://localhost:3000/api/health
+
+# Database health
+docker-compose exec postgres pg_isready -U homie_user
+```
+
+### Backup and Recovery
+
+#### Automated Backups (Production)
+```bash
+# Create backup
+./scripts/backup.sh
+
+# Restore from backup
+./scripts/restore.sh backup_production_20241230_120000
+```
+
+#### Manual Database Backup
+```bash
+# Backup
+docker-compose exec postgres pg_dump -U homie_user homie_db > backup.sql
+
+# Restore
+docker-compose exec -T postgres psql -U homie_user homie_db < backup.sql
+```
+
+### Performance Optimization
+
+#### Frontend Optimization
+- Enable image optimization in Next.js
+- Use CDN for static assets
+- Implement code splitting
+- Enable service worker for caching
+
+#### Backend Optimization
+- Use Redis for session storage
+- Enable database connection pooling
+- Implement API response caching
+- Use compression middleware
+
+#### Database Optimization
+- Create appropriate indexes
+- Use connection pooling
+- Configure PostgreSQL for production
+- Regular VACUUM and ANALYZE
+
+### Security Checklist
+
+- [ ] Use strong, unique passwords for all services
+- [ ] Enable SSL/TLS encryption
+- [ ] Configure firewall rules
+- [ ] Set up regular security updates
+- [ ] Use environment variables for secrets
+- [ ] Enable rate limiting
+- [ ] Configure CORS properly
+- [ ] Use security headers (Helmet.js)
+- [ ] Regular security audits (`npm audit`)
+
+### Troubleshooting
+
+#### Common Issues
+
+**Port already in use:**
+```bash
+# Find process using port
+sudo lsof -i :3000
+sudo lsof -i :5000
+
+# Kill process
+sudo kill -9 <PID>
+```
+
+**Docker permission denied:**
+```bash
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Logout and login again
+```
+
+**Database connection refused:**
+```bash
+# Check if PostgreSQL is running
+docker-compose ps postgres
+
+# Check database logs
+docker-compose logs postgres
+```
+
+**Memory issues:**
+```bash
+# Increase Docker memory limit
+# Docker Desktop: Settings > Resources > Memory
+
+# For Linux, check available memory
+free -h
+```
+
+### Maintenance
+
+#### Regular Tasks
+- Update dependencies monthly
+- Monitor disk usage
+- Review and rotate logs
+- Update SSL certificates
+- Backup verification
+- Security patches
+
+#### Updating the Application
+```bash
+# Pull latest changes
+git pull origin main
+
+# Deploy updates
+./scripts/deploy.sh production
+
+# Verify deployment
+curl http://localhost:3000/api/health
+```
+
+For additional support or questions, please refer to our [troubleshooting guide](docs/troubleshooting.md) or contact the development team.
 
 ## API Documentation
 

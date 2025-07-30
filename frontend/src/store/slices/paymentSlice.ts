@@ -61,7 +61,7 @@ export const initializePayment = createAsyncThunk(
 
 export const fetchMyPayments = createAsyncThunk(
   'payment/fetchMyPayments',
-  async (params?: any, { rejectWithValue }) => {
+  async (params: any = {}, { rejectWithValue }) => {
     try {
       const response = await api.get('/payments/my-payments', { params });
       return response.data;

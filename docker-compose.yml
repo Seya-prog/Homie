@@ -3,29 +3,51 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: homie_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: homie_db
       POSTGRES_USER: homie_user
       POSTGRES_PASSWORD: homie_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - homie_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homie_user -d homie_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: homie_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_password
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - homie_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
 
   # Backend API
   backend:
@@ -33,29 +55,53 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: homie_backend
+    restart: unless-stopped
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=5000
       - DATABASE_URL=postgresql://homie_user:homie_password@postgres:5432/homie_db
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
-      - FAYDA_CLIENT_ID=crXYIYg2cJiNTaw5t-peoFzCRo-3JATNfBd5A8GU8tO
-      - FAYDA_REDIRECT_URI=http://localhost:3000/callback
+      - REDIS_PASSWORD=redis_password
+      - JWT_SECRET=${JWT_SECRET:-your_super_secret_jwt_key_here_change_in_production}
+      - JWT_EXPIRES_IN=7d
+      - BCRYPT_ROUNDS=12
+      - FAYDA_CLIENT_ID=${FAYDA_CLIENT_ID:-crXYIYg2cJiNTaw5t-peoFzCRo-3JATNfBd5A8GU8tO}
+      - FAYDA_CLIENT_SECRET=${FAYDA_CLIENT_SECRET:-your_fayda_client_secret}
+      - FAYDA_REDIRECT_URI=${FAYDA_REDIRECT_URI:-http://localhost:3000/callback}
       - FAYDA_AUTHORIZATION_ENDPOINT=https://esignet.ida.fayda.et/authorize
       - FAYDA_TOKEN_ENDPOINT=https://esignet.ida.fayda.et/v1/esignet/oauth/v2/token
       - FAYDA_USERINFO_ENDPOINT=https://esignet.ida.fayda.et/v1/esignet/oidc/userinfo
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - CHAPA_SECRET_KEY=${CHAPA_SECRET_KEY:-your_chapa_secret_key}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-your_cloudinary_name}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-your_cloudinary_api_key}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-your_cloudinary_api_secret}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-your_email@gmail.com}
+      - SMTP_PASS=${SMTP_PASS:-your_app_password}
     ports:
       - "5000:5000"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend/uploads:/app/uploads
     networks:
       - homie_network
-    command: npm run dev
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
 
   # Frontend
   frontend:
@@ -63,26 +109,68 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: homie_frontend
+    restart: unless-stopped
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:5000/api
-      - NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
-      - NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5000/api}
+      - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://localhost:5000}
+      - NEXT_PUBLIC_FAYDA_CLIENT_ID=${FAYDA_CLIENT_ID:-crXYIYg2cJiNTaw5t-peoFzCRo-3JATNfBd5A8GU8tO}
+      - NEXT_TELEMETRY_DISABLED=1
     ports:
       - "3000:3000"
     depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      backend:
+        condition: service_healthy
     networks:
       - homie_network
-    command: npm run dev
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+
+  # Nginx Reverse Proxy (optional for production)
+  nginx:
+    image: nginx:alpine
+    container_name: homie_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - homie_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - production
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
 
 networks:
   homie_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

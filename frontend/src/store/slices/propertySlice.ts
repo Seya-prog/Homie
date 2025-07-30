@@ -59,7 +59,7 @@ const initialState: PropertyState = {
 
 export const fetchProperties = createAsyncThunk(
   'property/fetchProperties',
-  async (params?: any, { rejectWithValue }) => {
+  async (params: any = {}, { rejectWithValue }) => {
     try {
       const response = await api.get('/properties', { params });
       return response.data;
