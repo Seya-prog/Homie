@@ -199,14 +199,14 @@ npm run dev
 ## Features
 
 ### Core Features
-- User authentication and authorization
-- Fayda digital ID integration
-- Property listing and management
-- Advanced property search and filtering
-- Payment processing with Chapa
-- Real-time notifications
-- Rental agreement management
-- Maintenance request tracking
+- ✅ User authentication and authorization
+- ✅ Fayda digital ID integration
+- ✅ Property listing and management
+- ✅ Advanced property search and filtering
+- ✅ Payment processing with Chapa
+- ✅ Real-time notifications
+- ✅ Rental agreement management
+- ✅ Maintenance request tracking
 
 ### Security Features
 - JWT-based authentication
@@ -306,7 +306,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Support
 
 For support and questions, please contact:
-- Seid Muhidin: 
-- Abdulwahid Sultan: 
+- Seid Muhidin: [email]
+- Abdulwahid Sultan: [email]
 
 ---
+
+**Built with ❤️ in Ethiopia**
