@@ -1,0 +1,359 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String               @id @default(uuid())
+  email                  String               @unique
+  password               String?
+  firstName              String?
+  lastName               String?
+  phone                  String?
+  avatar                 String?
+  role                   UserRole             @default(TENANT)
+  faydaId                String?              @unique
+  faydaVerified          Boolean              @default(false)
+  kycStatus              KYCStatus            @default(PENDING)
+  kycData                Json?
+  landlordVerified       Boolean              @default(false)
+  landlordDocuments      String[]
+  landlordDocumentStatus String               @default("pending")
+  landlordDocumentNotes  String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  maintenanceRequests    MaintenanceRequest[]
+  payments               Payment[]
+  ownedProperties        Property[]           @relation("PropertyOwner")
+  inquiries              PropertyInquiry[]
+  sentApplications       RentalApplication[]  @relation("ApplicationUser")
+  applications           RentalApplication[]
+  rentals                Rental[]
+  reviews                Review[]
+  purchases              Sale[]               @relation("PropertyPurchases")
+  sales                  Sale[]               @relation("PropertySales")
+
+  @@map("users")
+}
+
+model Property {
+  id                          String               @id @default(uuid())
+  title                       String
+  description                 String
+  address                     String
+  city                        String
+  state                       String
+  zipCode                     String
+  country                     String               @default("Ethiopia")
+  latitude                    Float?
+  longitude                   Float?
+  propertyType                PropertyType
+  listingType                 ListingType          @default(RENT)
+  bedrooms                    Int
+  bathrooms                   Float
+  area                        Float
+  furnished                   Boolean              @default(false)
+  yearBuilt                   Int?
+  parkingSpaces               Int?                 @default(0)
+  floorNumber                 Int?
+  totalFloors                 Int?
+  rentAmount                  Float?
+  salePrice                   Float?
+  deposit                     Float?
+  currency                    String               @default("ETB")
+  status                      PropertyStatus       @default(AVAILABLE)
+  saleStatus                  SaleStatus?
+  available                   Boolean              @default(true)
+  images                      String[]
+  virtualTour                 String?
+  amenities                   String[]
+  features                    String[]
+  propertyDocuments           String[]
+  documentStatus              String               @default("pending")
+  documentNotes               String?
+  governmentAgreementAccepted Boolean              @default(false)
+  governmentAgreementDate     DateTime?
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+  ownerId                     String
+  maintenanceRequests         MaintenanceRequest[]
+  owner                       User                 @relation("PropertyOwner", fields: [ownerId], references: [id])
+  inquiries                   PropertyInquiry[]
+  applications                RentalApplication[]
+  rentals                     Rental[]
+  reviews                     Review[]
+  sales                       Sale[]
+
+  @@map("properties")
+}
+
+model Rental {
+  id         String       @id @default(uuid())
+  startDate  DateTime
+  endDate    DateTime
+  rentAmount Float
+  deposit    Float
+  status     RentalStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  propertyId String
+  tenantId   String
+  payments   Payment[]
+  property   Property     @relation(fields: [propertyId], references: [id])
+  tenant     User         @relation(fields: [tenantId], references: [id])
+
+  @@map("rentals")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  amount          Float
+  currency        String        @default("ETB")
+  paymentType     PaymentType
+  status          PaymentStatus @default(PENDING)
+  gateway         String?
+  transactionId   String?
+  gatewayResponse Json?
+  dueDate         DateTime
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  rentalId        String
+  userId          String
+  rental          Rental        @relation(fields: [rentalId], references: [id])
+  user            User          @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+model MaintenanceRequest {
+  id            String            @id @default(uuid())
+  title         String
+  description   String
+  priority      Priority          @default(MEDIUM)
+  status        MaintenanceStatus @default(PENDING)
+  estimatedCost Float?
+  actualCost    Float?
+  images        String[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  completedAt   DateTime?
+  propertyId    String
+  requesterId   String
+  property      Property          @relation(fields: [propertyId], references: [id])
+  requester     User              @relation(fields: [requesterId], references: [id])
+
+  @@map("maintenance_requests")
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  propertyId String
+  reviewerId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  reviewer   User     @relation(fields: [reviewerId], references: [id])
+
+  @@unique([propertyId, reviewerId])
+  @@map("reviews")
+}
+
+model Sale {
+  id          String     @id @default(uuid())
+  propertyId  String
+  buyerId     String
+  sellerId    String
+  salePrice   Float
+  downPayment Float?
+  financing   Boolean    @default(false)
+  status      SaleStatus @default(AVAILABLE)
+  closingDate DateTime?
+  commission  Float?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  buyer       User       @relation("PropertyPurchases", fields: [buyerId], references: [id])
+  property    Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  seller      User       @relation("PropertySales", fields: [sellerId], references: [id])
+
+  @@map("sales")
+}
+
+model PropertyInquiry {
+  id          String   @id @default(uuid())
+  propertyId  String
+  userId      String
+  message     String
+  inquiryType String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("property_inquiries")
+}
+
+model RentalApplication {
+  id                          String            @id @default(uuid())
+  propertyId                  String
+  applicantId                 String
+  landlordId                  String
+  message                     String
+  moveInDate                  DateTime
+  leaseDuration               Int
+  monthlyRent                 Float
+  securityDeposit             Float
+  status                      ApplicationStatus @default(PENDING)
+  statusHistory               Json[]
+  tenantDocuments             String[]
+  tenantDocumentStatus        String            @default("pending")
+  governmentAgreementAccepted Boolean           @default(false)
+  governmentAgreementDate     DateTime?
+  governmentAgreementDocument String?
+  contractSigned              Boolean           @default(false)
+  contractDocument            String?
+  firstPaymentCompleted       Boolean           @default(false)
+  keysHandedOver              Boolean           @default(false)
+  createdAt                   DateTime          @default(now())
+  updatedAt                   DateTime          @updatedAt
+  approvedAt                  DateTime?
+  rejectedAt                  DateTime?
+  completedAt                 DateTime?
+  applicant                   User              @relation("ApplicationUser", fields: [applicantId], references: [id])
+  landlord                    User              @relation(fields: [landlordId], references: [id])
+  property                    Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("rental_applications")
+}
+
+model GovernmentAgreement {
+  id            String   @id @default(uuid())
+  title         String
+  content       String
+  version       String
+  effectiveDate DateTime
+  isActive      Boolean  @default(true)
+  language      String   @default("am")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("government_agreements")
+}
+
+model DocumentTemplate {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  category     String
+  isRequired   Boolean  @default(true)
+  maxSize      Int      @default(5242880)
+  allowedTypes String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("document_templates")
+}
+
+enum UserRole {
+  TENANT
+  LANDLORD
+  ADMIN
+}
+
+enum KYCStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  CONDO
+  STUDIO
+  ROOM
+  VILLA
+  PENTHOUSE
+  TOWNHOUSE
+  COMMERCIAL
+  OFFICE
+  RETAIL
+  WAREHOUSE
+  LAND
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RENTED
+  SOLD
+  MAINTENANCE
+  INACTIVE
+}
+
+enum ListingType {
+  RENT
+  SALE
+  BOTH
+}
+
+enum SaleStatus {
+  AVAILABLE
+  UNDER_CONTRACT
+  SOLD
+  WITHDRAWN
+}
+
+enum RentalStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  PENDING
+}
+
+enum PaymentType {
+  RENT
+  DEPOSIT
+  MAINTENANCE
+  PENALTY
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ApplicationStatus {
+  PENDING
+  DOCUMENTS_REQUIRED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CONTRACT_PENDING
+  COMPLETED
+  CANCELLED
+}
