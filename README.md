@@ -306,7 +306,8 @@ npx prisma studio
 4. Contact landlords
 5. Make rental payments
 6. Submit maintenance requests
-
+## Demonstration Video
+- Demo: [https://drive.google.com/file/d/1xq-mXvJB0pWvw3A-DR6Bsc9SVn9HpyLr/view?usp=sharing]
 ## Contributing
 
 1. Fork the repository
