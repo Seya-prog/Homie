@@ -308,6 +308,7 @@ npx prisma studio
 6. Submit maintenance requests
 ## Demonstration Video
 - Demo: [https://drive.google.com/file/d/1xq-mXvJB0pWvw3A-DR6Bsc9SVn9HpyLr/view?usp=sharing]
+- Live: [https://homie-cqi2-382x67sia-seids-projects-ce89d225.vercel.app/]
 ## Contributing
 
 1. Fork the repository
