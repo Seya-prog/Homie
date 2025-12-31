@@ -1,9 +1,5 @@
 # Homie - End-to-End Property Listing and Management Platform
 
-## Contributors
-1. Seid Muhidin
-2. Abdulwahid Sultan
-
 ## Project Synopsis
 
 ### Problem Statement
