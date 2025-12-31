@@ -309,6 +309,10 @@ npx prisma studio
 ## Demonstration Video
 - Demo: [https://drive.google.com/file/d/1xq-mXvJB0pWvw3A-DR6Bsc9SVn9HpyLr/view?usp=sharing]
 - Live: [https://homie-cqi2-382x67sia-seids-projects-ce89d225.vercel.app/]
+- <img width="1177" height="620" alt="image" src="https://github.com/user-attachments/assets/dec57cc7-95a4-4def-bd00-9642f91adb9c" />
+- <img width="1180" height="617" alt="image" src="https://github.com/user-attachments/assets/c631f1cf-26fb-4f39-9b28-e81b3ab1e273" />
+
+
 ## Contributing
 
 1. Fork the repository
